@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^2.0.0",
+    "caver-js": "^1.6.5",
+    "config-yaml": "^1.1.6",
+    "prettier": "^2.5.1"
+  },
+  "scripts": {
+    "prettier": "prettier --write --config ./.prettierrc ./abi/*.json"
+  }
+}

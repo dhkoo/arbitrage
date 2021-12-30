@@ -1,0 +1,10 @@
+palaContracts:
+  palaViewer: '0x9F710b41a3e16a7723B9b5Bac469a9AF8a481969'
+
+palaPools:
+  klay-kusdt: '0xAb47eDf354348e14cFcc1949b38BF2317d510B79'
+  pala-kusdt: '0x2caA83Af6bBF61Dc15e7BCC5952bbb554358AD11'
+  pala-klay: '0xc556be31D170cA00241231371E139C8e4c0fc204'
+
+klayswapPools:
+  klay-kusdt: '0xd83f1b074d81869eff2c46c530d7308ffec18036'
