@@ -2,10 +2,15 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+
 import "./interfaces/IToken.sol";
 import "./interfaces/IPairPool.sol";
 
 contract PalaViewer {
+    using SafeMath for uint112;
+    using SafeMath for uint256;
+
     struct PriceInfo {
         uint256 palaPriceInKusdt;
         uint256 palaPriceInKlay;
@@ -51,17 +56,6 @@ contract PalaViewer {
             palaR1,
             klayR
         );
-    }
-
-    function calcPalaPriceInPalaPools() internal view returns (
-        uint256 priceInKusdtPool,
-        uint256 priceInKlayPool)
-    {
-        priceInKusdtPool = getExchangeRatio(PALA_KUSDT_ADDR, KUSDT_ADDR, PALA_ADDR);
-
-        uint256 palaKlayExchangeRatio = getExchangeRatio(PALA_KLAY_ADDR, WKLAY_ADDR, PALA_ADDR);
-        uint256 klayPrice = getExchangeRatio(KUSDT_KLAY_ADDR, KUSDT_ADDR, WKLAY_ADDR);
-        priceInKlayPool = palaKlayExchangeRatio * klayPrice / 1e18;
     }
 
     function getPalaPoolReserves() internal view returns (
@@ -112,5 +106,56 @@ contract PalaViewer {
                 reserve1 : reserve1 * 10**decimalDiff;
             return (convertedReserve1 * expressRange) / convertedReserve0;
         }
+    }
+
+    function calcPalaPriceInPalaPools() internal view returns (
+        uint256 priceInKusdtPool,
+        uint256 priceInKlayPool)
+    {
+        priceInKusdtPool = getExchangeRatio(PALA_KUSDT_ADDR, KUSDT_ADDR, PALA_ADDR);
+        uint256 palaKlayExchangeRatio =
+            getExchangeRatio(PALA_KLAY_ADDR, WKLAY_ADDR, PALA_ADDR);
+        uint256 klayPrice =
+            getExchangeRatio(KUSDT_KLAY_ADDR, KUSDT_ADDR, WKLAY_ADDR);
+        priceInKlayPool = palaKlayExchangeRatio * klayPrice / 1e18;
+    }
+
+    function calcAmountOutOf(
+        address pool,
+        address token,
+        uint256 amountIn) public view returns (uint256 amountOut)
+    {
+        IPairPool pair = IPairPool(pool);
+        (uint112 reserve0, uint112 reserve1,) = pair.getReserves();
+
+        uint112 inputTokenR = pair.token0() == token ? reserve0 : reserve1;
+        uint112 outputTokenR = pair.token0() == token ? reserve1 : reserve0;
+
+        uint256 k = inputTokenR.mul(outputTokenR);
+        uint256 amount = amountIn.mul(998).div(1000);
+        amountOut = outputTokenR.sub(k.div(inputTokenR.add(amount)));
+    }
+
+    function decideSwapPath() public view returns (address[] memory path) {
+        (uint256 palaPrice0, uint256 palaPrice1) = calcPalaPriceInPalaPools();
+        path = new address[](2);
+        path[0] = palaPrice0 < palaPrice1 ? PALA_KUSDT_ADDR : PALA_KLAY_ADDR;
+        path[1] = palaPrice0 < palaPrice1 ? PALA_KLAY_ADDR : PALA_KUSDT_ADDR;
+    }
+
+    function scanSpread(uint256 amountIn) external view returns (
+        address outputToken,
+        uint256 amountOut,
+        uint256 spread)
+    {
+        address[] memory path = decideSwapPath();
+        uint256 convertedAmountIn =
+            path[0] == PALA_KUSDT_ADDR ? amountIn.mul(1e6) : amountIn.mul(1e18);
+        address inputToken = path[0] == PALA_KUSDT_ADDR ? KUSDT_ADDR : WKLAY_ADDR;
+        uint256 palaAmountOut = calcAmountOutOf(path[0], inputToken, convertedAmountIn);
+        amountOut = calcAmountOutOf(path[1], PALA_ADDR, palaAmountOut);
+
+        outputToken = path[0] == PALA_KUSDT_ADDR ? WKLAY_ADDR : KUSDT_ADDR;
+        spread = calcAmountOutOf(KUSDT_KLAY_ADDR, outputToken, amountOut);
     }
 }

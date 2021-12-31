@@ -9,10 +9,16 @@ const PairPool = require("../build/contracts/IPairPool");
 const PalaViewer = require("../build/contracts/PalaViewer");
 
 const caver = new Caver(EN_NODE);
+const palaViewer = caver.contract.create(PalaViewer.abi, addrBook.palaContracts.palaViewer);
 
 const DEX = Object.freeze({
     PalaDEX: 0,
     Klayswap: 1
+});
+const TOKENS = Object.freeze({
+    wklay: "wklay",
+    pala: "pala",
+    kusdt: "kusdt"
 });
 const POOL = Object.freeze({
     klay_kusdt: "klay-kusdt",
@@ -20,46 +26,8 @@ const POOL = Object.freeze({
     pala_klay: "pala-klay"
 });
 
-const getTokenDecimal = async (tokenAddr) => {
-    const token = await caver.contract.create(Token.abi, tokenAddr);
-    return await token.methods.decimals().call();
-}
-
-const getPoolReserves = async (dexType, poolType) => {
-    let pool;
-    let res;
-    switch (dexType) {
-        case DEX.PalaDEX:
-            pool = caver.contract.create(PairPool.abi, addrBook.palaPools[poolType]);
-            res = await pool.methods.getReserves().call();
-            break;
-        case DEX.Klayswap:
-            pool = caver.contract.create(PairPool.abi, addrBook.klayswapPools[poolType]);
-            res = await pool.methods.getCurrentPool().call();
-            break;
-        default:
-            break;
-    }
-    return res;
-}
-
-const calcValueDiff = async (reserves0, reserves1) => {
-    const ratio0 = parseInt(reserves0.reserve0) / (parseInt(reserves0.reserve1) * 1e12);
-    const ratio1 = parseInt(reserves1.reserve0) / (parseInt(reserves1.reserve1) * 1e12);
-    console.log(ratio0);
-    console.log(ratio1);
-    console.log(Math.abs(ratio0 - ratio1));
-
-    const ratio2 = (parseInt(reserves0.reserve1) * 1e12) / parseInt(reserves0.reserve0);
-    const ratio3 = (parseInt(reserves1.reserve1) * 1e12) / parseInt(reserves1.reserve0);
-    console.log(ratio2);
-    console.log(ratio3);
-    console.log(Math.abs(ratio2 - ratio3));
-}
-
 const getPalaPriceInfo = async () => {
     const EXCHANGE_RATE = 1200;
-    const palaViewer = caver.contract.create(PalaViewer.abi, addrBook.palaContracts.palaViewer);
     const priceInfo = await palaViewer.methods.getPriceInfo().call();
 
     const palaPriceInKusdt = (parseInt(priceInfo.palaPriceInKusdt) / 1e18 * EXCHANGE_RATE).toFixed(3);
@@ -72,10 +40,44 @@ const getPalaPriceInfo = async () => {
     return [palaPriceInKusdt, palaPriceInKlay, palaR0, kusdtR, palaR1, klayR];
 }
 
+const printPriceInfo = (info) => {
+    console.log(`=======================================`);
+    console.log(`PALA price in PALA-KUSDT: ${info[0]} won`); 
+    console.log(`* pala reserve: ${info[2]}`);
+    console.log(`* kusdt reserve: ${info[3]}`);
+    console.log(`PALA price in PALA-KLAY: ${info[1]} won`); 
+    console.log(`* pala reserve: ${info[4]}`);
+    console.log(`* klay reserve: ${info[5]}`);
+    const priceDiff = Math.abs(parseInt(info[0]) - parseInt(info[1]));
+    const cheaperPool = info[0] < info[1] ? "PALA-KUSDT" : "PALA-KLAY";
+    console.log(`--------------------------------------`);
+    console.log(`cheaper in ${cheaperPool} as ${priceDiff} won`);
+    console.log(`=======================================`);
+}
+
+const scanSpread = async () => {
+    const inputAmount = [1, 10, 100, 1000];
+    for (let i = 0; i < inputAmount.length; ++i) {
+        let info = await palaViewer.methods.scanSpread(inputAmount[i]).call();
+        let outputToken = (info.outputToken).toLowerCase();
+        let kusdtAddr = (addrBook.tokens[TOKENS.kusdt]).toLowerCase();
+
+        let inputDecimals = outputToken == kusdtAddr ? 1e18 : 1e6;
+        let inputToken = outputToken == kusdtAddr ? TOKENS.wklay : TOKENS.kusdt;
+        let expectedAmount = (parseInt(info.spread) / inputDecimals).toFixed(3);
+
+        console.log(`[input] ${inputToken}: ${inputAmount[i]}`);
+        console.log(`[get] ${inputToken}: ${expectedAmount}`);
+        console.log(`[Expected profit] ${(parseFloat(expectedAmount) - inputAmount[i]).toFixed(3)} ${inputToken}`);
+        console.log(`---------------------------------`);
+    }
+}
+
 const asyncMain = async () => {
     try {
         const res = await getPalaPriceInfo();
-        console.log(res);
+        printPriceInfo(res);
+        await scanSpread();
     } catch (err) {
         console.log(err); 
     }

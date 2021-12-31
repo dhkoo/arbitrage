@@ -1,5 +1,5 @@
 palaContracts:
-  palaViewer: '0x9F710b41a3e16a7723B9b5Bac469a9AF8a481969'
+  palaViewer: '0xa4846Fa8d73daB921f165ed912E6c598B8Dad150'
 
 palaPools:
   klay-kusdt: '0xAb47eDf354348e14cFcc1949b38BF2317d510B79'
@@ -8,3 +8,8 @@ palaPools:
 
 klayswapPools:
   klay-kusdt: '0xd83f1b074d81869eff2c46c530d7308ffec18036'
+
+tokens:
+  pala: '0x7A1CdCA99FE5995ab8E317eDE8495c07Cbf488aD'
+  kusdt: '0xcee8faf64bb97a73bb51e115aa89c17ffa8dd167'
+  wklay: '0x2ff5f6dE2287CA3075232127277E53519A77947C'

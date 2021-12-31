@@ -3,6 +3,7 @@
     "@truffle/hdwallet-provider": "^2.0.0",
     "caver-js": "^1.6.5",
     "config-yaml": "^1.1.6",
+    "openzeppelin-solidity": "^3.4.2",
     "prettier": "^2.5.1"
   },
   "scripts": {
